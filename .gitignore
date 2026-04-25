@@ -50,3 +50,6 @@ desktop.ini
 wallet.dat
 *.macaroon
 seed.txt
+
+# --- Personal learning artifacts (not part of the deliverable) ---
+practice_bot/
