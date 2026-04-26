@@ -90,6 +90,7 @@ export async function POST(req: NextRequest) {
           confidence: 0.5,
         };
 
+        let triageError: string | null = null;
         try {
           const triageRes = await callPaidEndpoint(
             `${APP_URL}/api/triage`,
@@ -106,9 +107,14 @@ export async function POST(req: NextRequest) {
               confidence: data.confidence ?? 0.5,
               preimage: data.preimage,
             };
+          } else {
+            const body = await triageRes.text().catch(() => "");
+            triageError = `triage HTTP ${triageRes.status}: ${body.slice(0, 400)}`;
+            console.error("[TRIAGE]", triageError);
           }
         } catch (err) {
-          console.error("[TRIAGE] failed, defaulting to escalate:", err);
+          triageError = String(err);
+          console.error("[TRIAGE] failed:", err);
         }
 
         send({
@@ -116,6 +122,7 @@ export async function POST(req: NextRequest) {
           escalate: triageVerdict.escalate,
           reason: triageVerdict.reason,
           confidence: triageVerdict.confidence,
+          error: triageError,
         });
 
         if (!triageVerdict.escalate) {
@@ -156,7 +163,12 @@ export async function POST(req: NextRequest) {
           );
 
           if (!result.ok) {
-            send({ step: "verified_fallback", draft: verifyCtx.draft });
+            const body = await result.text().catch(() => "");
+            send({
+              step: "verified_fallback",
+              draft: verifyCtx.draft,
+              error: `verify HTTP ${result.status}: ${body.slice(0, 400)}`,
+            });
             controller.close();
             return;
           }
