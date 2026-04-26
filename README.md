@@ -17,7 +17,7 @@ The track asked teams to build something where AI agents transact autonomously o
 ## Sponsors
 
 - **Spiral** — Track sponsor. Spiral is Block's open-source Bitcoin engineering team. Their challenge framed the brief and shaped the L402 + Agent Wallet flow at the heart of this project.
-- **Lightning** — The Lightning Network is the rail every transaction in Consilium settles on: agent → API paywall, paywall → expert payout, in-and-out in seconds, sub-cent fees, no card networks involved.
+- **Lightning** — The Lightning Network is the rail every transaction in Vouch AI settles on: agent → API paywall, paywall → expert payout, in-and-out in seconds, sub-cent fees, no card networks involved.
 - **Tavily** — Tavily's Search API powers the optional real-time fact-check that runs alongside the expert's verdict, returning citations the user can verify themselves in the receipt modal.
 
 ---
