@@ -1,7 +1,11 @@
 #!/bin/sh
-# Reconstruct the user's funded MDK agent wallet on every container start
-# by writing ~/.mdk-wallet/config.json from env vars. This bypasses
-# `agent-wallet init`, which would generate a fresh random mnemonic.
+# 1. Reconstruct ~/.mdk-wallet/config.json from env vars so the wallet
+#    is keyed to the user's funded mnemonic + walletId (not a fresh
+#    randomly-generated one from `agent-wallet init`).
+# 2. Start the LDK wallet daemon in the background so payouts can hit it
+#    immediately instead of cold-starting one inside the request flow
+#    (which races against the 30s health-check timeout).
+# 3. Exec uvicorn so signal forwarding stays clean.
 
 exec 2>&1
 set -e
@@ -13,7 +17,7 @@ echo "[entrypoint] MDK_WALLET_ID=${MDK_WALLET_ID:-unset}"
 echo "[entrypoint] MDK_WALLET_NETWORK=${MDK_WALLET_NETWORK:-mainnet}"
 
 if [ -z "${MDK_WALLET_MNEMONIC:-}" ] || [ -z "${MDK_WALLET_ID:-}" ]; then
-  echo "[entrypoint] ERROR: MDK_WALLET_MNEMONIC and MDK_WALLET_ID required for payouts"
+  echo "[entrypoint] ERROR: MDK_WALLET_MNEMONIC and MDK_WALLET_ID required"
 else
   python3 - <<'PYEOF'
 import json
@@ -32,8 +36,13 @@ config = {
 }
 config_file.write_text(json.dumps(config, indent=2))
 config_file.chmod(0o600)
-print(f"[entrypoint] wrote {config_file} ({len(config_file.read_text())} bytes)")
+print(f"[entrypoint] wrote {config_file} ({config_file.stat().st_size} bytes)")
 PYEOF
+
+  echo "[entrypoint] starting wallet daemon..."
+  agent-wallet start 2>&1 || echo "[entrypoint] daemon start returned non-zero (may already be running)"
+  echo "[entrypoint] daemon status:"
+  agent-wallet status 2>&1 || true
 fi
 
 echo "===== [entrypoint] launching uvicorn ====="

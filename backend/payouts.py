@@ -59,15 +59,24 @@ async def pay_expert(lightning_address: str, amount_sats: int = PAYOUT_AMOUNT_SA
 
     logger.info(f"💸 [SATS-OUT] sending {amount_sats} sats → {dest_short}")
     try:
+        # Prefer the globally-installed `agent-wallet` binary (baked into
+        # the Docker image). Fall back to `npx` for local dev.
+        cmd = (
+            ["agent-wallet", "send", destination, str(amount_sats)]
+            if shutil.which("agent-wallet")
+            else [NPX, "@moneydevkit/agent-wallet@latest", "send", destination, str(amount_sats)]
+        )
         result = subprocess.run(
-            [NPX, "@moneydevkit/agent-wallet@latest", "send", destination, str(amount_sats)],
+            cmd,
             capture_output=True,
             text=True,
             timeout=60,
             shell=False,
         )
         if result.returncode != 0:
-            err = result.stderr.strip() or result.stdout.strip() or "unknown error"
+            stdout = (result.stdout or "").strip()
+            stderr = (result.stderr or "").strip()
+            err = " | ".join(p for p in [f"stdout={stdout}" if stdout else "", f"stderr={stderr}" if stderr else ""] if p) or "unknown error"
             logger.error(f"❌ [SATS-OUT] FAILED to send {amount_sats} sats → {dest_short}: {err}")
             return {"success": False, "error": err}
         data = json.loads(result.stdout.strip())

@@ -5,6 +5,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certifi
  && apt-get install -y --no-install-recommends nodejs \
  && rm -rf /var/lib/apt/lists/*
 
+# Pre-install the MDK agent-wallet so the daemon binary is on PATH and
+# we don't pay the npx download cost on every payout call.
+RUN npm install -g @moneydevkit/agent-wallet@0.16.0
+
 WORKDIR /app
 
 COPY requirements.txt .
