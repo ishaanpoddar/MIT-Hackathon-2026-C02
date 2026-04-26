@@ -1,19 +1,101 @@
-# Agent Verification Marketplace
+# CONSILIUM — AI + Verified Experts
 
-Built for MIT Hackathon — Challenge 02 (Earn in the Agent Economy).
+Built for Hack-Nation x World Bank Youth Summit Global AI Hackathon 2026 — Spiral Track: "Earn in the Agent Economy"
 
-An LLM-facing API where AI agents autonomously call human experts to verify high-stakes answers, paying sub-dollar fees per request via the Lightning Network. Cross-border, agent-initiated, settles in seconds.
+When an AI is about to give a high-stakes answer (medical, legal, or financial), it autonomously pays a real verified human expert ~$1.20 in Bitcoin Lightning to sanity-check the answer before showing it to the end user.
 
-## Repo layout
+## How it works
 
-- `telegram/` — Verifier bot. FastAPI service that turns an HTTP `/verify` call into a Telegram message to a human expert, captures their reply, and returns it.
-- `backend/` — Agent backend (in development). Hosts the LLM agent, decides when to verify, and integrates the Lightning paywall.
-- `frontend/` — User-facing interface (in development).
+1. User asks a question in the chat UI
+2. AI agent (GPT-4o) drafts an answer and detects if it's high-stakes
+3. If high-stakes, the agent's Lightning wallet pays 120 SAT via L402 to the verification endpoint
+4. A registered expert gets pinged on Telegram, claims the request, and types a verdict
+5. Expert gets paid 100 SAT instantly via Lightning
+6. User sees the verified answer with the expert's credential badge
 
-## Quick start (verifier bot)
+## Tech Stack
 
-Setup steps are in the docstring at the top of `telegram/verifier_bot.py`.
+- **Frontend**: Next.js 16 + TypeScript + Tailwind + shadcn/ui
+- **Backend**: Python + FastAPI + python-telegram-bot
+- **Lightning**: MoneyDevKit (`@moneydevkit/nextjs`) — L402 paywall + Agent Wallet
+- **LLM**: OpenAI GPT-4o
+- **Database**: Supabase (PostgreSQL)
+
+## Repo Layout
+
+- `frontend/` — Next.js app (chat UI + L402-paywalled API routes)
+- `backend/` — FastAPI app (LLM orchestration + Telegram bot + Supabase)
+- `supabase/` — Schema migrations
+- `telegram/` — Legacy verifier bot (superseded by `backend/`)
+
+## Setup
+
+### Prerequisites
+
+- Node.js 18+
+- Python 3.11+
+- A Supabase project
+- An OpenAI API key
+- A Telegram bot token (from @BotFather)
+- MoneyDevKit credentials (`npx @moneydevkit/create`)
+
+### 1. Supabase
+
+Create a new Supabase project and run the SQL in `supabase/001_initial.sql` in the SQL editor.
+
+### 2. Backend
+
+```bash
+cd backend
+cp .env.example .env
+# Fill in .env with your credentials
+pip install -r requirements.txt
+python main.py
+```
+
+### 3. Frontend
+
+```bash
+cd frontend
+cp .env.example .env
+# Fill in .env with your MoneyDevKit + OpenAI credentials
+npm install
+npm run dev
+```
+
+### 4. Agent Wallet
+
+```bash
+npx @moneydevkit/agent-wallet@latest init
+# Fund the wallet using the receive command
+npx @moneydevkit/agent-wallet@latest receive 10000
+```
+
+### 5. Telegram Expert
+
+1. Find your bot on Telegram
+2. Send `/start`
+3. Register: `/register Dr. Mehta | MBBS, 8 yrs experience | healthcare | mehta@cash.app`
+4. Go on call: `/available`
 
 ## Architecture
 
-User asks question, LLM agent drafts an answer, then runs a confidence check. If uncertain, the agent calls the verifier API. Lightning payment goes out via L402, a human verifier is paged via Telegram, the reply comes back, and the final answer is rendered with a verification receipt.
+```
+User → Next.js Chat UI → FastAPI /process (LLM draft + stakes detection)
+                              ↓ (if high-stakes)
+                         Agent wallet pays L402 → Next.js /api/verify
+                              ↓
+                         FastAPI /do-verify → Telegram ping to experts
+                              ↓
+                         Expert claims + types verdict
+                              ↓
+                         Agent wallet pays expert (Lightning)
+                              ↓
+                         Verdict merged with AI draft → User sees verified answer
+```
+
+## Money Flow
+
+- Agent pays **120 SAT** (~$1.20) via L402 to access the verification endpoint
+- Expert receives **100 SAT** via Lightning Address for their verdict
+- ~20 SAT retained as platform margin / Lightning routing fees

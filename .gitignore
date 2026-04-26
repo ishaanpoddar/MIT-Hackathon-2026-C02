@@ -53,3 +53,6 @@ seed.txt
 
 # --- Personal learning artifacts (not part of the deliverable) ---
 practice_bot/
+
+# --- Kilo agent scratchpad ---
+.kilo/
