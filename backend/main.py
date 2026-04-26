@@ -1,9 +1,12 @@
 import os
 import uuid
 import json
+import shutil
 import asyncio
 import logging
+import subprocess
 from datetime import datetime, timezone
+from typing import Optional
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
@@ -401,6 +404,88 @@ async def get_verdict(request_id: str):
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+
+def _wallet_cmd() -> list[str]:
+    """Prefer the globally-installed binary; fall back to npx for local dev."""
+    if shutil.which("agent-wallet"):
+        return ["agent-wallet"]
+    return ["npx", "@moneydevkit/agent-wallet@latest"]
+
+
+@app.get("/wallet/balance")
+async def wallet_balance():
+    cmd = _wallet_cmd() + ["balance"]
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+    except subprocess.TimeoutExpired:
+        return {"available": False, "error": "wallet balance timed out"}
+    except Exception as e:
+        return {"available": False, "error": str(e)}
+
+    if result.returncode != 0:
+        err = (result.stderr or "").strip() or (result.stdout or "").strip() or "unknown"
+        return {"available": False, "error": err}
+
+    try:
+        data = json.loads(result.stdout.strip())
+        return {"available": True, "sats": data.get("balance_sats", 0)}
+    except json.JSONDecodeError:
+        return {"available": False, "error": f"unparseable: {result.stdout[:200]}"}
+
+
+class WalletReceiveRequest(BaseModel):
+    amount: Optional[int] = None
+    description: str = "Vouch wallet top-up"
+
+
+@app.post("/wallet/receive")
+async def wallet_receive(req: WalletReceiveRequest):
+    cmd = _wallet_cmd() + ["receive"]
+    if req.amount:
+        cmd.append(str(req.amount))
+    if req.description:
+        cmd.extend(["--description", req.description])
+
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=504, detail="wallet receive timed out")
+
+    if result.returncode != 0:
+        err = (result.stderr or "").strip() or (result.stdout or "").strip() or "unknown"
+        raise HTTPException(status_code=502, detail=f"wallet receive failed: {err}")
+
+    first_line = (result.stdout or "").strip().split("\n", 1)[0]
+    try:
+        return json.loads(first_line)
+    except json.JSONDecodeError:
+        raise HTTPException(
+            status_code=502,
+            detail=f"unparseable receive output: {first_line[:200]}",
+        )
+
+
+@app.post("/wallet/receive-bolt12")
+async def wallet_receive_bolt12():
+    cmd = _wallet_cmd() + ["receive-bolt12"]
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=504, detail="wallet receive-bolt12 timed out")
+
+    if result.returncode != 0:
+        err = (result.stderr or "").strip() or (result.stdout or "").strip() or "unknown"
+        raise HTTPException(status_code=502, detail=f"wallet receive-bolt12 failed: {err}")
+
+    first_line = (result.stdout or "").strip().split("\n", 1)[0]
+    try:
+        return json.loads(first_line)
+    except json.JSONDecodeError:
+        raise HTTPException(
+            status_code=502,
+            detail=f"unparseable receive-bolt12 output: {first_line[:200]}",
+        )
 
 
 @app.get("/transactions-summary")
