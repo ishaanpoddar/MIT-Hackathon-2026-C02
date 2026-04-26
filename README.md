@@ -1,4 +1,4 @@
-# VOUCH — AI + Verified Experts
+# Vouch AI — Verified Expert Answers
 
 Built for **Hack-Nation x World Bank Youth Summit Global AI Hackathon 2026**.
 

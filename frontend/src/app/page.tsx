@@ -63,7 +63,7 @@ function formatDollars(sats: number): string {
   return `$${dollars.toFixed(2)}`;
 }
 
-export default function VitalsAIPage() {
+export default function VouchAIPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -237,9 +237,9 @@ export default function VitalsAIPage() {
             <Stethoscope className="h-5 w-5 text-white" />
           </div>
           <div>
-            <h1 className="text-base font-semibold tracking-tight">VitalsAI</h1>
+            <h1 className="text-base font-semibold tracking-tight">Vouch AI</h1>
             <p className="text-xs text-muted-foreground -mt-0.5">
-              Telehealth Assistant
+              Verified Expert Answers
             </p>
           </div>
         </div>
@@ -305,8 +305,8 @@ export default function VitalsAIPage() {
           </Button>
         </div>
         <p className="max-w-3xl mx-auto text-[10px] text-muted-foreground mt-2 text-center">
-          VitalsAI is an AI assistant. High-stakes answers are verified by a licensed
-          professional via the Vouch network before being shown to you.
+          Vouch AI is an AI assistant. High-stakes answers are verified by a licensed
+          professional before being shown to you.
         </p>
       </div>
 
@@ -432,7 +432,7 @@ function MessageView({
       </Avatar>
       <div className="flex-1 space-y-2 min-w-0">
         <p className="text-xs font-medium text-muted-foreground">
-          {isUser ? "You" : "VitalsAI"}
+          {isUser ? "You" : "Vouch AI"}
         </p>
 
         {isUser ? (

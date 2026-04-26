@@ -1,7 +1,6 @@
 import { NextRequest } from "next/server";
 
 const FASTAPI_URL = process.env.FASTAPI_URL || "http://localhost:8001";
-const SKIP_LIGHTNING = process.env.SKIP_LIGHTNING === "true";
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001";
 
 export async function POST(req: NextRequest) {
@@ -89,32 +88,21 @@ export async function POST(req: NextRequest) {
         };
 
         try {
-          if (SKIP_LIGHTNING) {
-            // Dev mode: skip the L402 dance, assume triage says escalate
-            triageVerdict = {
-              escalate: true,
-              reason: "Triage simulated (SKIP_LIGHTNING dev mode)",
-              confidence: 0.7,
-              preimage: "DEV_SKIP_LIGHTNING",
-            };
-            send({ step: "payment_settled", preimage: "DEV_SKIP_LIGHTNING", sats: 1 });
-          } else {
-            const triageRes = await callPaidEndpoint(
-              `${APP_URL}/api/triage`,
-              { question: message, ai_draft: verifyCtx.draft, domain: verifyCtx.domain },
-              (p) => {
-                send({ step: "payment_settled", preimage: p, sats: 1 });
-              }
-            );
-            if (triageRes.ok) {
-              const data = await triageRes.json();
-              triageVerdict = {
-                escalate: data.escalate ?? true,
-                reason: data.reason ?? "",
-                confidence: data.confidence ?? 0.5,
-                preimage: data.preimage,
-              };
+          const triageRes = await callPaidEndpoint(
+            `${APP_URL}/api/triage`,
+            { question: message, ai_draft: verifyCtx.draft, domain: verifyCtx.domain },
+            (p) => {
+              send({ step: "payment_settled", preimage: p, sats: 1 });
             }
+          );
+          if (triageRes.ok) {
+            const data = await triageRes.json();
+            triageVerdict = {
+              escalate: data.escalate ?? true,
+              reason: data.reason ?? "",
+              confidence: data.confidence ?? 0.5,
+              preimage: data.preimage,
+            };
           }
         } catch (err) {
           console.error("[TRIAGE] failed, defaulting to escalate:", err);
@@ -144,14 +132,12 @@ export async function POST(req: NextRequest) {
 
         send({ step: "paying", sats: verifyCtx.sats, price_dollars: verifyCtx.price_dollars });
 
-        let preimage = "";
         let verifyData: Record<string, unknown> | null = null;
 
-        if (SKIP_LIGHTNING) {
-          const notifyRes = await fetch(`${FASTAPI_URL}/do-verify`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
+        try {
+          const result = await callPaidEndpoint(
+            `${APP_URL}/api/verify`,
+            {
               question: message,
               ai_draft: verifyCtx.draft,
               domain: verifyCtx.domain,
@@ -159,64 +145,28 @@ export async function POST(req: NextRequest) {
               request_id: verifyCtx.request_id,
               tier: verifyCtx.tier,
               sats_paid: verifyCtx.sats,
-              payment_preimage: "DEV_SKIP_LIGHTNING",
-            }),
-          });
-
-          if (!notifyRes.ok) {
-            send({ step: "verified_fallback", draft: verifyCtx.draft });
-            controller.close();
-            return;
-          }
-
-          send({ step: "verifier_notified" });
-
-          const verdictRes = await fetch(
-            `${FASTAPI_URL}/verdict/${verifyCtx.request_id}`,
-            { headers: { "Content-Type": "application/json" } }
-          );
-          if (!verdictRes.ok) {
-            send({ step: "verified_fallback", draft: verifyCtx.draft });
-            controller.close();
-            return;
-          }
-          verifyData = await verdictRes.json();
-        } else {
-          try {
-            const result = await callPaidEndpoint(
-              `${APP_URL}/api/verify`,
-              {
-                question: message,
-                ai_draft: verifyCtx.draft,
-                domain: verifyCtx.domain,
-                subspecialty: verifyCtx.subspecialty,
-                request_id: verifyCtx.request_id,
-                tier: verifyCtx.tier,
-                sats_paid: verifyCtx.sats,
-              },
-              (p) => {
-                preimage = p;
-                send({ step: "payment_settled", preimage: p, sats: verifyCtx!.sats });
-                send({ step: "verifier_notified" });
-              }
-            );
-
-            if (!result.ok) {
-              send({ step: "verified_fallback", draft: verifyCtx.draft });
-              controller.close();
-              return;
+            },
+            (p) => {
+              send({ step: "payment_settled", preimage: p, sats: verifyCtx!.sats });
+              send({ step: "verifier_notified" });
             }
+          );
 
-            verifyData = await result.json();
-          } catch (e) {
-            send({
-              step: "verified_fallback",
-              draft: verifyCtx.draft,
-              error: String(e),
-            });
+          if (!result.ok) {
+            send({ step: "verified_fallback", draft: verifyCtx.draft });
             controller.close();
             return;
           }
+
+          verifyData = await result.json();
+        } catch (e) {
+          send({
+            step: "verified_fallback",
+            draft: verifyCtx.draft,
+            error: String(e),
+          });
+          controller.close();
+          return;
         }
 
         send({

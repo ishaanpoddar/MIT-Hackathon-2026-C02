@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "VitalsAI — Telehealth Assistant",
-  description: "AI telehealth chat with on-demand expert verification",
+  title: "Vouch AI — Verified Expert Answers",
+  description: "AI assistant with on-demand verification by licensed human experts, paid in Bitcoin Lightning.",
 };
 
 export default function RootLayout({
