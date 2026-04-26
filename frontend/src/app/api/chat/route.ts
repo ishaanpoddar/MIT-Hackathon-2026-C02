@@ -1,7 +1,10 @@
 import { NextRequest } from "next/server";
 
 const FASTAPI_URL = process.env.FASTAPI_URL || "http://localhost:8001";
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001";
+const RAW_APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001";
+const APP_URL = RAW_APP_URL.startsWith("http")
+  ? RAW_APP_URL
+  : `https://${RAW_APP_URL}`;
 
 export async function POST(req: NextRequest) {
   const { message, session_id } = await req.json();
