@@ -3,7 +3,6 @@ import uuid
 import json
 import asyncio
 import logging
-from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
@@ -12,13 +11,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from supabase_client import supabase
 from llm import generate_draft, detect_stakes
-from telegram_bot import init_bot, send_verification_request
 from signing import ensure_keypair, build_payload, sign_payload
 
 load_dotenv()
 
 PORT = int(os.environ.get("PORT", "8001"))
-DEMO_MODE = os.environ.get("DEMO_MODE", "true").lower() == "true"
 DEMO_TIER_SATS = 2
 DEMO_TIER_DOLLARS = 0.02
 
@@ -26,13 +23,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    await init_bot()
-    yield
-
-
-app = FastAPI(lifespan=lifespan, title="Vouch Backend")
+app = FastAPI(title="Vouch Backend")
 
 app.add_middleware(
     CORSMiddleware,
@@ -79,6 +70,7 @@ class DoVerifyRequest(BaseModel):
     question: str
     ai_draft: str
     domain: str = "general"
+    subspecialty: str = ""
     request_id: str = ""
     tier: str = "triage"
     sats_paid: int = DEMO_TIER_SATS
@@ -120,6 +112,7 @@ async def process_stream(req: ProcessRequest):
             "step": "classify",
             "domain": stakes.domain,
             "domain_label": domain_label,
+            "subspecialty": stakes.subspecialty,
             "stakes_level": "high" if stakes.needs_verification else "low",
         })
         await asyncio.sleep(0.3)
@@ -159,7 +152,8 @@ async def process_stream(req: ProcessRequest):
             "tier": "triage",
             "price_dollars": DEMO_TIER_DOLLARS,
             "sats": DEMO_TIER_SATS,
-            "reason": f"Stakes: high · confidence: {int(stakes.confidence*100)}% — escalating to licensed {domain_label} expert.",
+            "subspecialty": stakes.subspecialty,
+            "reason": f"Stakes: high · confidence: {int(stakes.confidence*100)}% — escalating to licensed {stakes.subspecialty} specialist.",
         })
         await asyncio.sleep(0.4)
 
@@ -172,6 +166,7 @@ async def process_stream(req: ProcessRequest):
             "draft": draft.draft,
             "domain": stakes.domain,
             "domain_label": domain_label,
+            "subspecialty": stakes.subspecialty,
             "request_id": request_id,
             "sats": DEMO_TIER_SATS,
             "price_dollars": DEMO_TIER_DOLLARS,
@@ -213,18 +208,8 @@ async def do_verify(req: DoVerifyRequest):
         except Exception as e2:
             logger.warning(f"update for extra columns failed ({e2}); migration 003 not applied")
 
-    notified = await send_verification_request(
-        request_id=request_id,
-        question=req.question,
-        ai_draft=req.ai_draft,
-        domain=req.domain,
-    )
-
-    if not notified and DEMO_MODE:
-        asyncio.create_task(simulate_expert_response(request_id, req.domain))
-        logger.info(f"Demo mode: simulating expert response for {request_id}")
-    elif not notified:
-        logger.warning(f"No experts notified for request {request_id}, but request stored for manual claim")
+    asyncio.create_task(simulate_expert_response(request_id, req.domain, req.subspecialty))
+    logger.info(f"Simulating expert response for {request_id} ({req.subspecialty or 'general'})")
 
     return DoVerifyResponse(request_id=request_id)
 
@@ -237,7 +222,7 @@ FALLBACK_VERDICTS = {
 }
 
 
-async def simulate_expert_response(request_id: str, domain: str):
+async def simulate_expert_response(request_id: str, domain: str, subspecialty: str = ""):
     await asyncio.sleep(8)
 
     # Atomic claim: only proceed if status is still 'pending'. Postgres ensures
@@ -291,6 +276,7 @@ async def simulate_expert_response(request_id: str, domain: str):
             question=question,
             ai_draft=ai_draft,
             domain=domain,
+            subspecialty=subspecialty,
             fact_check=fact_check,
         )
         expert_verdict_text = verdict_obj.verdict or expert_verdict_text

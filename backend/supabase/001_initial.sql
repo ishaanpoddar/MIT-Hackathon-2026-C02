@@ -1,10 +1,9 @@
 CREATE TABLE IF NOT EXISTS experts (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  telegram_chat_id BIGINT UNIQUE NOT NULL,
   name TEXT NOT NULL,
   credentials TEXT NOT NULL,
   specialty TEXT NOT NULL CHECK (specialty IN ('healthcare', 'legal', 'finance', 'general')),
-  lightning_address TEXT NOT NULL,
+  lightning_address TEXT NOT NULL UNIQUE,
   available BOOLEAN DEFAULT false,
   created_at TIMESTAMPTZ DEFAULT now()
 );

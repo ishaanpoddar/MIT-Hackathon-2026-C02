@@ -9,14 +9,14 @@ When an AI is about to give a high-stakes answer (medical, legal, or financial),
 1. User asks a question in the chat UI
 2. AI agent (GPT-4o) drafts an answer and detects if it's high-stakes
 3. If high-stakes, the agent's Lightning wallet pays 120 SAT via L402 to the verification endpoint
-4. A registered expert gets pinged on Telegram, claims the request, and types a verdict
-5. Expert gets paid 100 SAT instantly via Lightning
+4. A specialist persona reviews the AI draft and submits a verdict (signed via Ed25519)
+5. Expert gets paid 100 SAT instantly via Lightning Address
 6. User sees the verified answer with the expert's credential badge
 
 ## Tech Stack
 
 - **Frontend**: Next.js 16 + TypeScript + Tailwind + shadcn/ui
-- **Backend**: Python + FastAPI + python-telegram-bot
+- **Backend**: Python + FastAPI
 - **Lightning**: MoneyDevKit (`@moneydevkit/nextjs`) — L402 paywall + Agent Wallet
 - **LLM**: OpenAI GPT-4o
 - **Database**: Supabase (PostgreSQL)
@@ -24,9 +24,8 @@ When an AI is about to give a high-stakes answer (medical, legal, or financial),
 ## Repo Layout
 
 - `frontend/` — Next.js app (chat UI + L402-paywalled API routes)
-- `backend/` — FastAPI app (LLM orchestration + Telegram bot + Supabase)
-- `supabase/` — Schema migrations
-- `telegram/` — Legacy verifier bot (superseded by `backend/`)
+- `backend/` — FastAPI app (LLM orchestration + Supabase + Ed25519 signing)
+- `backend/supabase/` — Schema migrations
 
 ## Setup
 
@@ -36,7 +35,6 @@ When an AI is about to give a high-stakes answer (medical, legal, or financial),
 - Python 3.11+
 - A Supabase project
 - An OpenAI API key
-- A Telegram bot token (from @BotFather)
 - MoneyDevKit credentials (`npx @moneydevkit/create`)
 
 ### 1. Supabase
@@ -71,25 +69,16 @@ npx @moneydevkit/agent-wallet@latest init
 npx @moneydevkit/agent-wallet@latest receive 10000
 ```
 
-### 5. Telegram Expert
-
-1. Find your bot on Telegram
-2. Send `/start`
-3. Register: `/register Dr. Mehta | MBBS, 8 yrs experience | healthcare | mehta@cash.app`
-4. Go on call: `/available`
-
 ## Architecture
 
 ```
-User → Next.js Chat UI → FastAPI /process (LLM draft + stakes detection)
+User → Next.js Chat UI → FastAPI /process-stream (LLM draft + stakes detection)
                               ↓ (if high-stakes)
                          Agent wallet pays L402 → Next.js /api/verify
                               ↓
-                         FastAPI /do-verify → Telegram ping to experts
+                         FastAPI /do-verify → specialist persona generates verdict
                               ↓
-                         Expert claims + types verdict
-                              ↓
-                         Agent wallet pays expert (Lightning)
+                         Agent wallet pays expert via Lightning Address
                               ↓
                          Verdict merged with AI draft → User sees verified answer
 ```
