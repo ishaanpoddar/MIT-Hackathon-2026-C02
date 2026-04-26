@@ -585,11 +585,15 @@ function renderEventLine(
   switch (e.step) {
     case "thinking":
       return { key: e.step, text: "Analyzing question…" };
-    case "classify":
+    case "classify": {
+      const sub = typeof e.subspecialty === "string" && e.subspecialty && e.subspecialty.toLowerCase() !== "general"
+        ? ` (${e.subspecialty})`
+        : "";
       return {
         key: e.step,
-        text: `Classified: ${e.domain_label || e.domain} · stakes ${e.stakes_level}`,
+        text: `Classified: ${e.domain_label || e.domain}${sub} · stakes ${e.stakes_level}`,
       };
+    }
     case "confidence": {
       const v = typeof e.value === "number" ? Math.round(e.value * 100) : 0;
       return {
@@ -615,13 +619,17 @@ function renderEventLine(
         sub,
       };
     }
-    case "tier_selected":
+    case "tier_selected": {
+      const sub = typeof e.subspecialty === "string" && e.subspecialty && e.subspecialty.toLowerCase() !== "general"
+        ? ` · routing to ${e.subspecialty}`
+        : "";
       return {
         key: e.step,
-        text: `Selected: ${String(e.tier || "")} tier · ${formatDollars(Number(e.sats || 0))}`,
+        text: `Selected: ${String(e.tier || "")} tier · ${formatDollars(Number(e.sats || 0))}${sub}`,
         sub: typeof e.reason === "string" ? e.reason : undefined,
         tone: "accent",
       };
+    }
     case "drafting":
       return { key: e.step, text: String(e.message || "Drafting answer…") };
     case "needs_verification":

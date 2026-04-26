@@ -4,7 +4,7 @@ const FASTAPI_URL = process.env.FASTAPI_URL || "http://localhost:8001";
 
 const handler = async (req: Request, settle: () => Promise<SettleResult>) => {
   const body = await req.json();
-  const { question, ai_draft, domain, request_id, tier, sats_paid } = body;
+  const { question, ai_draft, domain, subspecialty, request_id, tier, sats_paid } = body;
 
   console.log(`💰 [L402] /api/verify — settle attempt for request=${request_id} tier=${tier} sats=${sats_paid}`);
 
@@ -23,6 +23,7 @@ const handler = async (req: Request, settle: () => Promise<SettleResult>) => {
         question,
         ai_draft,
         domain,
+        subspecialty: subspecialty || "",
         request_id,
         tier: tier || "triage",
         sats_paid: sats_paid || 100,

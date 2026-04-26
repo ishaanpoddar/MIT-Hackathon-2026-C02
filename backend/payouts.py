@@ -11,7 +11,7 @@ load_dotenv()
 logger = logging.getLogger("vouch.payouts")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(name)s] %(message)s")
 
-PAYOUT_AMOUNT_SATS = int(os.environ.get("PAYOUT_AMOUNT_SATS", "100"))
+PAYOUT_AMOUNT_SATS = int(os.environ.get("PAYOUT_AMOUNT_SATS", "2"))
 
 
 def _resolve_npx() -> str:

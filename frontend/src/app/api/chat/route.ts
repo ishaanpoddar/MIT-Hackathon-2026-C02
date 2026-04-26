@@ -34,6 +34,7 @@ export async function POST(req: NextRequest) {
           | {
               draft: string;
               domain: string;
+              subspecialty: string;
               request_id: string;
               sats: number;
               price_dollars: number;
@@ -62,6 +63,7 @@ export async function POST(req: NextRequest) {
                 verifyCtx = {
                   draft: evt.draft,
                   domain: evt.domain,
+                  subspecialty: evt.subspecialty || "",
                   request_id: evt.request_id,
                   sats: evt.sats,
                   price_dollars: evt.price_dollars,
@@ -153,6 +155,7 @@ export async function POST(req: NextRequest) {
               question: message,
               ai_draft: verifyCtx.draft,
               domain: verifyCtx.domain,
+              subspecialty: verifyCtx.subspecialty,
               request_id: verifyCtx.request_id,
               tier: verifyCtx.tier,
               sats_paid: verifyCtx.sats,
@@ -186,6 +189,7 @@ export async function POST(req: NextRequest) {
                 question: message,
                 ai_draft: verifyCtx.draft,
                 domain: verifyCtx.domain,
+                subspecialty: verifyCtx.subspecialty,
                 request_id: verifyCtx.request_id,
                 tier: verifyCtx.tier,
                 sats_paid: verifyCtx.sats,
