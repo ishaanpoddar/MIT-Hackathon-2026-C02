@@ -466,6 +466,40 @@ async def wallet_receive(req: WalletReceiveRequest):
         )
 
 
+class WalletPayRequest(BaseModel):
+    invoice: str
+    amount: Optional[int] = None
+
+
+@app.post("/wallet/pay")
+async def wallet_pay(req: WalletPayRequest):
+    cmd = _wallet_cmd() + ["send", req.invoice]
+    if req.amount:
+        cmd.append(str(req.amount))
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=504, detail="wallet send timed out")
+
+    if result.returncode != 0:
+        err = (result.stderr or "").strip() or (result.stdout or "").strip() or "unknown"
+        raise HTTPException(status_code=502, detail=f"wallet send failed: {err}")
+
+    # MDK send prints "[wallet] Payment initiated..." to stderr then a JSON
+    # line on stdout. Find the JSON line robustly.
+    for line in (result.stdout or "").splitlines():
+        line = line.strip()
+        if line.startswith("{"):
+            try:
+                return json.loads(line)
+            except json.JSONDecodeError:
+                continue
+    raise HTTPException(
+        status_code=502,
+        detail=f"unparseable send output: {(result.stdout or '')[:300]}",
+    )
+
+
 @app.get("/wallet/transactions")
 async def wallet_transactions():
     cmd = _wallet_cmd() + ["payments"]

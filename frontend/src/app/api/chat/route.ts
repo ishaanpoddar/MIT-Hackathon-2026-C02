@@ -251,14 +251,19 @@ async function callPaidEndpoint(
 }
 
 async function payInvoice(invoice: string): Promise<string> {
-  const { execSync } = await import("child_process");
-  const result = execSync(
-    `npx @moneydevkit/agent-wallet@latest send ${invoice}`,
-    { encoding: "utf-8", timeout: 60000 }
-  );
-  const data = JSON.parse(result.trim());
+  const res = await fetch(`${FASTAPI_URL}/wallet/pay`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ invoice }),
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(`backend pay failed: ${res.status} ${detail.slice(0, 200)}`);
+  }
+  const data = (await res.json()) as { preimage?: string };
   if (!data.preimage) {
-    throw new Error(`MDK send returned no preimage: ${result.trim()}`);
+    throw new Error(`MDK send returned no preimage: ${JSON.stringify(data)}`);
   }
   return data.preimage;
 }
