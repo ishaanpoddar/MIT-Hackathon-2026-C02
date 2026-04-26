@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+const FASTAPI_URL = process.env.FASTAPI_URL || "http://localhost:8001";
+
 let cachedBalance: { sats: number; ts: number } | null = null;
 const CACHE_MS = 4000;
 
@@ -10,29 +12,37 @@ export async function GET() {
   }
 
   try {
-    const { execSync } = await import("child_process");
-    const result = execSync(`npx @moneydevkit/agent-wallet@latest balance`, {
-      encoding: "utf-8",
-      timeout: 15000,
+    const res = await fetch(`${FASTAPI_URL}/wallet/balance`, {
+      cache: "no-store",
     });
-    const trimmed = result.trim();
 
-    let sats = 0;
-    try {
-      const parsed = JSON.parse(trimmed);
-      sats =
-        parsed.balance_sats ??
-        parsed.balance ??
-        parsed.sats ??
-        parsed.amount_sats ??
-        0;
-    } catch {
-      const match = trimmed.match(/(\d[\d,]*)\s*(?:sats?|SATS?)/);
-      if (match) sats = parseInt(match[1].replace(/,/g, ""), 10);
+    if (!res.ok) {
+      return NextResponse.json(
+        { sats: 0, error: `backend ${res.status}`, unavailable: true },
+        { status: 200 }
+      );
     }
 
+    const data = (await res.json()) as {
+      available: boolean;
+      sats?: number;
+      error?: string;
+    };
+
+    if (!data.available) {
+      return NextResponse.json(
+        {
+          sats: 0,
+          error: data.error || "wallet unavailable",
+          unavailable: true,
+        },
+        { status: 200 }
+      );
+    }
+
+    const sats = data.sats ?? 0;
     cachedBalance = { sats, ts: now };
-    return NextResponse.json({ sats, raw: trimmed });
+    return NextResponse.json({ sats });
   } catch (err) {
     return NextResponse.json(
       { sats: 0, error: String(err), unavailable: true },

@@ -466,6 +466,27 @@ async def wallet_receive(req: WalletReceiveRequest):
         )
 
 
+@app.get("/wallet/transactions")
+async def wallet_transactions():
+    cmd = _wallet_cmd() + ["payments"]
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+    except subprocess.TimeoutExpired:
+        return {"payments": [], "error": "wallet payments timed out"}
+    except Exception as e:
+        return {"payments": [], "error": str(e)}
+
+    if result.returncode != 0:
+        err = (result.stderr or "").strip() or (result.stdout or "").strip() or "unknown"
+        return {"payments": [], "error": err}
+
+    try:
+        data = json.loads(result.stdout.strip())
+        return {"payments": data.get("payments", [])}
+    except json.JSONDecodeError:
+        return {"payments": [], "error": f"unparseable: {result.stdout[:200]}"}
+
+
 @app.post("/wallet/receive-bolt12")
 async def wallet_receive_bolt12():
     cmd = _wallet_cmd() + ["receive-bolt12"]
