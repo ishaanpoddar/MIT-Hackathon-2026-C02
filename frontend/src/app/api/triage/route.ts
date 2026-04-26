@@ -27,6 +27,12 @@ const FAILSAFE_VERDICT: TriageVerdict = {
 const truncate = (s: string, n: number): string =>
   s.length > n ? `${s.slice(0, n)}...` : s;
 
+const extractPreimage = (req: Request): string => {
+  const auth = req.headers.get("authorization") || "";
+  const match = auth.match(/(?:L402|LSAT)\s+\S+:(\S+)/i);
+  return match ? match[1] : "";
+};
+
 const parseVerdict = (raw: string): TriageVerdict => {
   try {
     const parsed = JSON.parse(raw) as Partial<TriageVerdict>;
@@ -136,7 +142,7 @@ const handler = async (req: Request, settle: () => Promise<SettleResult>) => {
     return Response.json({ error: "settlement_failed" }, { status: 500 });
   }
 
-  const preimage = settlement.preimage || "";
+  const preimage = extractPreimage(req);
   console.log(`💰 [TRIAGE-L402] settled preimage=${preimage.slice(0, 16)}...`);
 
   return Response.json({

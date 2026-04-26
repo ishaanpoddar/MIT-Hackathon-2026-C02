@@ -10,7 +10,7 @@ export async function POST() {
         timeout: 60000,
         windowsHide: true,
         shell: process.platform === "win32" ? "cmd.exe" : "/bin/sh",
-      } as Record<string, unknown>
+      }
     );
     const trimmed = stdout.trim();
 

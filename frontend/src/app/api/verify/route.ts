@@ -2,6 +2,12 @@ import { withDeferredSettlement, type SettleResult } from "@moneydevkit/nextjs/s
 
 const FASTAPI_URL = process.env.FASTAPI_URL || "http://localhost:8001";
 
+function extractPreimage(req: Request): string {
+  const auth = req.headers.get("authorization") || "";
+  const match = auth.match(/(?:L402|LSAT)\s+\S+:(\S+)/i);
+  return match ? match[1] : "";
+}
+
 const handler = async (req: Request, settle: () => Promise<SettleResult>) => {
   const body = await req.json();
   const { question, ai_draft, domain, subspecialty, request_id, tier, sats_paid } = body;
@@ -14,7 +20,8 @@ const handler = async (req: Request, settle: () => Promise<SettleResult>) => {
       console.error(`❌ [L402] settlement failed for request=${request_id}`);
       return Response.json({ error: "settlement_failed" }, { status: 500 });
     }
-    console.log(`✅ [L402] settled for request=${request_id} preimage=${(settlement.preimage || "").slice(0, 16)}...`);
+    const preimage = extractPreimage(req);
+    console.log(`✅ [L402] settled for request=${request_id} preimage=${preimage.slice(0, 16)}...`);
 
     const notifyRes = await fetch(`${FASTAPI_URL}/do-verify`, {
       method: "POST",
@@ -27,7 +34,7 @@ const handler = async (req: Request, settle: () => Promise<SettleResult>) => {
         request_id,
         tier: tier || "triage",
         sats_paid: sats_paid || 100,
-        payment_preimage: settlement.preimage || "",
+        payment_preimage: preimage,
       }),
     });
 
