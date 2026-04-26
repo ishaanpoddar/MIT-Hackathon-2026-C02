@@ -1,4 +1,4 @@
-# CONSILIUM — AI + Verified Experts
+# VOUCH — AI + Verified Experts
 
 Built for **Hack-Nation x World Bank Youth Summit Global AI Hackathon 2026**.
 
@@ -10,7 +10,7 @@ When an AI is about to give a high-stakes answer (medical, legal, or financial),
 
 **Spiral Track — "Earn in the Agent Economy"**
 
-The track asked teams to build something where AI agents transact autonomously over Bitcoin Lightning — paying for services, accessing gated APIs, or compensating humans without anyone in the loop pushing buttons. Consilium puts a licensed-expert pay-per-call API behind L402, so any agent in the world can buy a credentialed second opinion for pennies.
+The track asked teams to build something where AI agents transact autonomously over Bitcoin Lightning — paying for services, accessing gated APIs, or compensating humans without anyone in the loop pushing buttons. Vouch puts a licensed-expert pay-per-call API behind L402, so any agent in the world can buy a credentialed second opinion for pennies.
 
 ---
 
